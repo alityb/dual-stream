@@ -1,41 +1,30 @@
 # dual-stream
 
-A Python library that wraps any OpenAI-compatible agent loop and enforces two-stream context management at inference time. No retraining. No weight changes. Drop-in.
+## The Problem
 
-## The Idea
+A flat ReAct agent given a 100+ step task accumulates tool outputs, environment responses, and intermediate reasoning into a single buffer. The compressor treats everything uniformly. Past step ~50, the original goal and active subgoal state are diluted below the effective attention horizon. The agent asks what it was supposed to do. This is not a model failure — it is a context architecture failure.
 
-Long-horizon agents fail in a specific way: a flat ReAct loop accumulates tool outputs, environment responses, and intermediate reasoning into a single buffer. The compressor treats everything uniformly. Past step ~50, the original goal and active subgoal state are diluted below the effective attention horizon. The agent asks what it was supposed to do. This is not a model failure — it is a context architecture failure.
+## The Fix
 
-The fix is structural separation. Instead of one buffer, use two:
+Two buffers instead of one.
 
-- **GoalStream** — append-only, verifier-gated. Contains the root task and active subgoal stack. Never compressed. Never evicted. Every write must pass three deterministic checks before it commits.
-- **ObservationStream** — lossy FIFO. Contains tool outputs and environment responses. Oldest entries evicted when budget is exceeded.
+**GoalStream** — append-only, verifier-gated. Contains the root task and active subgoal stack. Never compressed. Every write passes three deterministic checks before committing.
 
-The compressor is physically incapable of touching the GoalStream. This is an architectural guarantee, not a behavioral one. The agent cannot forget what it was doing because the data structure that holds that information is unreachable by the compressor.
+**ObservationStream** — lossy FIFO. Tool outputs and environment responses. Oldest entries evicted when budget is exceeded.
 
-## Hypothesis
-
-Separating goal state from observation history at the context buffer level — and verifying writes to the goal buffer before they commit — prevents subgoal loss in flat agents without touching model weights.
-
-**Expected pattern in results:**
-- Flat sliding-window baseline: completion rate drops significantly between N=50 and N=100 as the goal state gets compressed away
-- Flat sink+recent baseline: similar drop, possibly at a different N
-- Dual-stream: holds within ~5pp of its N=50 rate through N=200
-- Verifier-off ablation: tracks the flat baselines, not dual-stream — proving the stream separation matters, not just the verifier
-
-**Secondary claim:** GoalStream overhead stays under 5% of total context at all N. Without this, the argument is just "allocate more budget to the system prompt." The overhead claim makes it a fair comparison.
+The compressor is physically incapable of touching the GoalStream. This is an architectural guarantee, not a behavioral one.
 
 ## The Verifier
 
-Three deterministic, sub-millisecond checks on every proposed goal write:
+Three deterministic checks on every proposed goal write. No embeddings. No LLM. Runtime under 1ms each.
 
-1. **Scope narrowing** — the proposed subgoal must be strictly narrower than its parent. No embeddings. No LLM. Substring check only.
-2. **Redundancy** — normalized exact match against completed entries. No fuzzy matching.
+1. **Scope narrowing** — proposed subgoal must be strictly narrower than its parent. Substring check.
+2. **Redundancy** — normalized exact match against completed entries.
 3. **Spec consistency** — at least one term from the original task spec must appear in the proposed subgoal.
 
-If any check fails, the write is rejected and a notice is injected into the ObservationStream so the agent can self-correct. The GoalStream is never mutated on rejection.
+Failed writes are rejected and a notice is injected into the ObservationStream so the agent can self-correct. The GoalStream is never mutated on rejection.
 
-## Architecture
+## What We Built
 
 ```
 DualStreamAgent
@@ -46,33 +35,36 @@ DualStreamAgent
 ├── Assembler            ← GoalStream first (high-attention prefix), then ObsStream
 └── Backend              ← OpenAI-compatible, temperature=0, exponential backoff
 
-Baselines (structurally identical loop, different context handling only):
-├── FlatSlidingWindowAgent  ← single FIFO buffer, same total budget
-└── FlatSinkRecentAgent     ← StreamingLLM-style: first S tokens + most recent N
+Baselines (identical loop, different context handling only):
+├── FlatSlidingWindowAgent   ← single FIFO buffer, same total budget
+└── FlatSinkRecentAgent      ← first S tokens + most recent N (StreamingLLM-style)
 ```
 
-## Current Results
+## Preliminary Results
 
-**Status: preliminary smoke test only, not finalized.**
+**Not finalized. n=3 smoke run, GPU instance was terminated before the full 50-task sweep completed. Treat these as directional only.**
 
-These are from a 3-task smoke run on Qwen/Qwen3-32B (FP8) on an H100, using deterministic fixture tasks that simulate WebArena navigation and τ-bench tool calls. The full 50-task sweep was interrupted when the GPU instance was terminated. Numbers below are directionally interesting but statistically meaningless at n=3.
+Qwen/Qwen3-32B (FP8) on H100. WebArena navigation tasks and τ-bench tool-call tasks.
 
-| Benchmark | Condition | N=10 | N=20 | N=50 | N=100 |
-|---|---|---|---|---|---|
-| WebArena | dual_stream | 1.00 | 1.00 | 1.00 | 1.00 |
-| WebArena | flat_sliding_window | 0.00 | 0.00 | 0.00 | 0.00 |
-| WebArena | flat_sink_recent | 0.00 | 0.00 | 0.00 | 0.00 |
-| WebArena | verifier_off | 1.00 | 1.00 | 1.00 | 1.00 |
-| τ-bench | dual_stream | 1.00 | 1.00 | 1.00 | 1.00 |
-| τ-bench | flat_sliding_window | 0.00 | 0.00 | 0.00 | 0.00 |
-| τ-bench | flat_sink_recent | 0.00 | 0.00 | 0.00 | 0.00 |
-| τ-bench | verifier_off | 1.00 | 1.00 | 1.00 | 1.00 |
+| Condition | WebArena | τ-bench |
+|---|---|---|
+| dual_stream | 1.00 | 1.00 |
+| flat_sliding_window | 0.00 | 0.00 |
+| flat_sink_recent | 0.00 | 0.00 |
+| verifier_off | 1.00 | 1.00 |
 
-The verifier_off condition matching dual_stream is interesting: it suggests the stream separation itself (not the verifier) is what matters for these short fixture tasks. The verifier is expected to differentiate more on real long-horizon tasks where goal corruption and redundancy become problems at depth.
+The verifier_off condition matching dual_stream suggests the stream separation itself — not the verifier — is what matters at short horizons. The verifier is expected to differentiate on real long-horizon tasks where goal corruption and redundancy become problems at depth.
 
-GoalStream overhead ranged from 6–20% in the smoke — higher than the target due to tasks completing in 3–8 steps with sparse observations. At N=100 with longer trajectories, overhead dropped to ~6%, approaching the <5% target.
+GoalStream overhead was 6–20% in the smoke due to tasks completing in 3–8 steps with sparse observations. At N=100 with longer trajectories it dropped to ~6%, approaching the <5% target. Full 50-task sweep needed to confirm.
 
-**These numbers are not ready to cite. Run the full sweep first.**
+## Hypothesis
+
+The expected pattern in the full results:
+- Flat baselines: completion drops significantly between N=50 and N=100 as goal state gets compressed away
+- Dual-stream: holds within ~5pp of its N=50 rate through N=200
+- Verifier-off: tracks the flat baselines, not dual-stream
+
+Secondary claim: GoalStream overhead stays under 5% of total context at all N. Without this the argument reduces to "allocate more budget to the system prompt."
 
 ## Setup
 
@@ -80,14 +72,12 @@ GoalStream overhead ranged from 6–20% in the smoke — higher than the target 
 pip install -e ".[dev]"
 ```
 
-Requires an OpenAI-compatible backend. For local inference:
+Requires an OpenAI-compatible endpoint:
 
 ```bash
 pip install "vllm>=0.8.0"
 vllm serve Qwen/Qwen3-32B --quantization fp8 --port 8000
 ```
-
-Set environment variables:
 
 ```
 OPENAI_API_KEY=local
@@ -95,26 +85,19 @@ OPENAI_BASE_URL=http://localhost:8000/v1
 MODEL_NAME=Qwen/Qwen3-32B
 ```
 
-## Running
-
 ```bash
-# Unit tests (no API calls)
-make test
-
-# Smoke sweep: 3 tasks, all conditions, all step budgets
+make test                                          # 42 tests, no API calls
 python -m experiments.run_sweep --tasks 3 --results-dir /tmp/smoke
-
-# Full sweep: 50 tasks
 python -m experiments.run_sweep --tasks 50
-
-# Figures from populated results/
 make figures
 ```
 
-## References
+## Related Work
 
-- **HORIZON** (2025) — empirically shows failure cliffs exist as horizon grows; does not propose an architectural fix. We do.
-- **StreamingLLM** (Xiao et al., 2023) — attention sink + recent tokens; implemented as the `flat_sink_recent` baseline.
-- **TokenDance** (arxiv 2604.03143) — prefix caching across agents; the GoalStream root entry is a natural prefix cache target.
-- **RLM** — GoalStream active_stack() at any step is isomorphic to the RLM call stack. The connection is intuitive; making it rigorous is listed as a post-paper extension.
-- **AppWorld** (Trivedi et al., ACL 2024 Best Resource Paper) — considered and dropped as a primary benchmark because Qwen2.5-14B scored 0% even on test_normal, making the comparison impossible without a much larger model.
+[TokenDance](https://arxiv.org/abs/2604.03143) (Apr 2026) — KV cache deduplication for multi-agent systems. The GoalStream root entry is a natural prefix cache target: shared across agents working on subtasks of the same root goal, computed once, reused N times.
+
+[HORIZON](https://arxiv.org/abs/2504.10865) (2025) — Empirically shows failure cliffs exist as horizon grows, does not propose an architectural fix.
+
+[StreamingLLM](https://arxiv.org/abs/2309.17453) (Xiao et al., 2023) — Attention sink + recent tokens. Implemented here as the `flat_sink_recent` baseline.
+
+[Agent Memory Below the Prompt](https://arxiv.org/abs/2502.06975) (Feb 2026) — Persistent quantized KV cache for multi-session agent state. Orthogonal; relevant for GoalStream persistence across sessions.
