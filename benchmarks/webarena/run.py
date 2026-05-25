@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from benchmarks.webarena.harness import WebArenaHarness
-from dual_stream.types import AgentResult, GoalStream, ObservationStream
+from core import AgentResult, GoalStream, ObservationStream
 
 
 def validate_known_passing() -> int:

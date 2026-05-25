@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from dual_stream.types import GoalEntry, GoalStream, TaskSpec
+from core import GoalEntry, GoalStream, TaskSpec
 
 
 class SimpleTokenizer:

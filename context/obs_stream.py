@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dual_stream.types import ObservationEntry, ObservationStream
+from core import ObservationEntry, ObservationStream
 
 
 def append_observation(stream: ObservationStream, entry: ObservationEntry) -> None:

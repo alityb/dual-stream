@@ -8,12 +8,12 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dual_stream.backends.openai import OpenAIBackend
-from dual_stream.compressor.sliding_window import trim
-from dual_stream.context.assembler import build_context
-from dual_stream.context.goal_stream import mark_complete
-from dual_stream.context.obs_stream import append_observation
-from dual_stream.types import (
+from backends.openai import OpenAIBackend
+from compressor.sliding_window import trim
+from context.assembler import build_context
+from context.goal_stream import mark_complete
+from context.obs_stream import append_observation
+from core import (
     AgentConfig,
     AgentResult,
     Backend,
@@ -26,7 +26,7 @@ from dual_stream.types import (
     ToolExecutor,
     VerifierResult,
 )
-from dual_stream.verifier.verifier import validate
+from verifier.verifier import validate
 
 LOGGER = logging.getLogger("dual_stream")
 logging.basicConfig(level=os.getenv("DS_LOG_LEVEL", "WARNING"))

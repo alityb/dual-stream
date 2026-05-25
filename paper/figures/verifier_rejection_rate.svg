@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="132">
-<rect width="100%" height="100%" fill="white"/>
-<text x="24" y="36" font-size="22" font-family="monospace">Verifier Rejection Rate</text>
-<text x="24" y="72" font-size="15" font-family="monospace">swe_bench: N=20: 0.040, N=50: 0.040, N=100: 0.040, N=200: 0.040</text>
-<text x="24" y="96" font-size="15" font-family="monospace">webarena: N=20: 0.040, N=50: 0.040, N=100: 0.040, N=200: 0.040</text>
-<text x="24" y="120" font-size="15" font-family="monospace">tau_bench: N=20: 0.040, N=50: 0.040, N=100: 0.040, N=200: 0.040</text>
-</svg>

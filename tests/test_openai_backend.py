@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dual_stream.agent import format_agent_prompt
-from dual_stream.backends.openai import OpenAIBackend
+from agent import format_agent_prompt
+from backends.openai import OpenAIBackend
 
 
 def test_openai_backend_splits_system_marker() -> None:

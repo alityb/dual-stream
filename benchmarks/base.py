@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from dual_stream.types import AgentResult, BenchmarkTask, TaskSpec
+from core import AgentResult, BenchmarkTask, TaskSpec
 
 
 class BenchmarkHarness(ABC):

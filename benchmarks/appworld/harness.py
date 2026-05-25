@@ -7,8 +7,8 @@ from typing import Any
 import re
 
 from benchmarks.base import BenchmarkHarness
-from dual_stream.agent import extract_key_terms
-from dual_stream.types import AgentResult, BenchmarkTask, TaskSpec
+from agent import extract_key_terms
+from core import AgentResult, BenchmarkTask, TaskSpec
 
 
 def _env_value(name: str) -> str | None:

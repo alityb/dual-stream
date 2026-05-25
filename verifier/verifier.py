@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dual_stream.types import GoalEntry, GoalStream, TaskSpec, VerifierResult
-from dual_stream.verifier.checks import (
+from core import GoalEntry, GoalStream, TaskSpec, VerifierResult
+from verifier.checks import (
     check_redundancy,
     check_scope_narrowing,
     check_spec_consistency,

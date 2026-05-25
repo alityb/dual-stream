@@ -9,8 +9,8 @@ from benchmarks.appworld.harness import AppWorldHarness
 from benchmarks.base import BenchmarkHarness
 from benchmarks.tau_bench.harness import TauBenchHarness
 from benchmarks.webarena.harness import WebArenaHarness
-from dual_stream.agent import DualStreamAgent, WhitespaceTokenizer
-from dual_stream.types import AgentConfig, AgentResult, Backend, BenchmarkTask, TaskSpec
+from agent import DualStreamAgent, WhitespaceTokenizer
+from core import AgentConfig, AgentResult, Backend, BenchmarkTask, TaskSpec
 from experiments import config
 from experiments.baselines.flat_sink_recent import FlatSinkRecentAgent
 from experiments.baselines.flat_sliding_window import FlatSlidingWindowAgent
@@ -104,7 +104,7 @@ def run_task(
 
 
 def _default_backend() -> Backend:
-    from dual_stream.backends.openai import OpenAIBackend
+    from backends.openai import OpenAIBackend
 
     return OpenAIBackend()
 

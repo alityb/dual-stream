@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from dual_stream.agent import (
+from agent import (
     WhitespaceTokenizer,
     extract_key_terms,
     format_agent_prompt,
     has_parsed_action,
     parse_response,
 )
-from dual_stream.backends.openai import OpenAIBackend
-from dual_stream.types import AgentConfig, AgentResult, Backend, TaskSpec, ToolExecutor
+from backends.openai import OpenAIBackend
+from core import AgentConfig, AgentResult, Backend, TaskSpec, ToolExecutor
 from experiments.baselines.common import (
     FlatBuffer,
     FlatBufferEntry,

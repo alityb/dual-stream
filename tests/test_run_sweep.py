@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from benchmarks.base import BenchmarkHarness
-from dual_stream.types import AgentResult, BenchmarkTask, GoalStream, ObservationStream, TaskSpec
+from core import AgentResult, BenchmarkTask, GoalStream, ObservationStream, TaskSpec
 from experiments import config
 from experiments.run_sweep import build_result, write_sweep
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dual_stream.types import AgentConfig, TaskSpec
+from core import AgentConfig, TaskSpec
 from experiments.baselines.common import FlatBuffer, FlatBufferEntry, append_flat, trim_flat_fifo, trim_flat_sink_recent
 from experiments.baselines.flat_sink_recent import FlatSinkRecentAgent
 from experiments.baselines.flat_sliding_window import FlatSlidingWindowAgent

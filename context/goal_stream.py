@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dual_stream.types import GoalEntry, GoalStream, TaskSpec, VerifierResult
-from dual_stream.verifier.verifier import validate
+from core import GoalEntry, GoalStream, TaskSpec, VerifierResult
+from verifier.verifier import validate
 
 
 def append_verified(
