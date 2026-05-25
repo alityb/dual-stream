@@ -9,8 +9,8 @@ from benchmarks.appworld.harness import AppWorldHarness
 from benchmarks.base import BenchmarkHarness
 from benchmarks.tau_bench.harness import TauBenchHarness
 from benchmarks.webarena.harness import WebArenaHarness
-from agent import DualStreamAgent, WhitespaceTokenizer
-from core import AgentConfig, AgentResult, Backend, BenchmarkTask, TaskSpec
+from src.agent import DualStreamAgent, WhitespaceTokenizer
+from src.core import AgentConfig, AgentResult, Backend, BenchmarkTask, TaskSpec
 from experiments import config
 from experiments.baselines.flat_sink_recent import FlatSinkRecentAgent
 from experiments.baselines.flat_sliding_window import FlatSlidingWindowAgent

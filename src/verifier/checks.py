@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from core import GoalEntry, GoalStream, TaskSpec, VerifierResult
+from src.core import GoalEntry, GoalStream, TaskSpec, VerifierResult
 
 
 def _normalize(text: str) -> str:

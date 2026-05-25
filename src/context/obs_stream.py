@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core import ObservationEntry, ObservationStream
+from src.core import ObservationEntry, ObservationStream
 
 
 def append_observation(stream: ObservationStream, entry: ObservationEntry) -> None:

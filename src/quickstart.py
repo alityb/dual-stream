@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from agent import DualStreamAgent
-from context.assembler import render_goal_stream
-from core import AgentConfig, TaskSpec
+from src.agent import DualStreamAgent
+from src.context.assembler import render_goal_stream
+from src.core import AgentConfig, TaskSpec
 
 
 class QuickstartBackend:

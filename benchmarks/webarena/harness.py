@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from benchmarks.base import BenchmarkHarness, score_answer
-from core import AgentResult, BenchmarkTask, TaskSpec
+from src.core import AgentResult, BenchmarkTask, TaskSpec
 
 
 class WebArenaHarness(BenchmarkHarness):

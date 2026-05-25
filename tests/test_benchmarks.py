@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from benchmarks.tau_bench.harness import TauBenchHarness
 from benchmarks.webarena.harness import WebArenaHarness
-from core import AgentResult, GoalStream, ObservationStream
+from src.core import AgentResult, GoalStream, ObservationStream
 
 
 def test_fixture_compatible_harnesses_score_expected_answers() -> None:

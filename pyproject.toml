@@ -22,7 +22,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["backends*", "compressor*", "context*", "verifier*", "benchmarks*", "experiments*", "analysis*", "tests*"]
+include = ["src*", "benchmarks*", "experiments*", "analysis*"]
 
 [tool.black]
 line-length = 88

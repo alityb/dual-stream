@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from context.obs_stream import append_observation
-from core import ObservationEntry, ObservationStream
+from src.context.obs_stream import append_observation
+from src.core import ObservationEntry, ObservationStream
 
 
 def test_append_observation_tracks_tokens() -> None:

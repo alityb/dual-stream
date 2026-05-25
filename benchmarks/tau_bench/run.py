@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from benchmarks.tau_bench.harness import TauBenchHarness
-from core import AgentResult, GoalStream, ObservationStream
+from src.core import AgentResult, GoalStream, ObservationStream
 
 
 def validate_known_passing() -> int:

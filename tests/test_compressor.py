@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from compressor.sliding_window import trim
-from context.obs_stream import append_observation
-from core import GoalStream, ObservationEntry, ObservationStream
+from src.compressor.sliding_window import trim
+from src.context.obs_stream import append_observation
+from src.core import GoalStream, ObservationEntry, ObservationStream
 
 
 def test_trim_rejects_goal_stream() -> None:

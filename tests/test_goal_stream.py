@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from context.goal_stream import append_verified, mark_complete
-from core import GoalEntry, GoalStream, TaskSpec
+from src.context.goal_stream import append_verified, mark_complete
+from src.core import GoalEntry, GoalStream, TaskSpec
 
 
 def test_active_stack_returns_root_to_leaf(task_spec: TaskSpec) -> None:

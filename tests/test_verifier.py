@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from core import GoalEntry, GoalStream, TaskSpec
-from verifier.checks import (
+from src.core import GoalEntry, GoalStream, TaskSpec
+from src.verifier.checks import (
     check_redundancy,
     check_scope_narrowing,
     check_spec_consistency,
 )
-from verifier.verifier import validate
+from src.verifier.verifier import validate
 
 
 def test_scope_narrowing_accepts_root(goal_stream: GoalStream) -> None:

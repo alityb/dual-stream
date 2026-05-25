@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from core import GoalEntry, GoalStream, TaskSpec, VerifierResult
-from verifier.checks import (
+from src.core import GoalEntry, GoalStream, TaskSpec, VerifierResult
+from src.verifier.checks import (
     check_redundancy,
     check_scope_narrowing,
     check_spec_consistency,

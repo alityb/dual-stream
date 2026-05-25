@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core import GoalStream, ObservationStream
+from src.core import GoalStream, ObservationStream
 
 
 def render_goal_stream(goal_stream: GoalStream) -> str:

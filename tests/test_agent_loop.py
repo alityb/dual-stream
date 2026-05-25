@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from agent import DualStreamAgent, format_agent_prompt, parse_response
-from core import AgentConfig, ParsedResponse, TaskSpec
+from src.agent import DualStreamAgent, format_agent_prompt, parse_response
+from src.core import AgentConfig, ParsedResponse, TaskSpec
 
 
 class FakeBackend:

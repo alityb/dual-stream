@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from core import GoalEntry, GoalStream, TaskSpec, VerifierResult
-from verifier.verifier import validate
+from src.core import GoalEntry, GoalStream, TaskSpec, VerifierResult
+from src.verifier.verifier import validate
 
 
 def append_verified(

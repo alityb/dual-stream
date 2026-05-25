@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core import ObservationStream
+from src.core import ObservationStream
 
 
 def trim(stream: ObservationStream) -> None:

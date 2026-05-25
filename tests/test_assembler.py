@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from context.assembler import build_context, render_goal_stream, render_obs_stream
-from context.obs_stream import append_observation
-from core import GoalEntry, GoalStream, ObservationEntry, ObservationStream, TaskSpec
+from src.context.assembler import build_context, render_goal_stream, render_obs_stream
+from src.context.obs_stream import append_observation
+from src.core import GoalEntry, GoalStream, ObservationEntry, ObservationStream, TaskSpec
 
 
 def test_render_goal_stream_exact_format(task_spec: TaskSpec) -> None:
