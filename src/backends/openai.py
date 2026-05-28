@@ -53,6 +53,7 @@ class OpenAIBackend:
                     messages=messages,
                     temperature=0,
                     max_tokens=self.max_tokens,
+                    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
                 content = response.choices[0].message.content
                 return content or ""
