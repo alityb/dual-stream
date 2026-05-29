@@ -35,28 +35,28 @@ AGENT_PROTOCOL = """You are controlling an interactive agent loop.
 Respond using ONLY these XML tags. Do not include any prose outside the tags.
 
 <goal_update>one narrow subgoal</goal_update>
-<tool_call>browser action here</tool_call>
+<tool_call>function_call_here</tool_call>
 <mark_complete>goal_id</mark_complete>
 <final_answer>answer text</final_answer>
 
 Every opening tag MUST have a matching closing tag.
-Use at least one tag per turn. Only emit <goal_update> when starting a new subtask.
+Use at least one tag per turn.
 
-WEBARENA BROWSER AGENT:
-- Your observations are accessibility trees of web pages. Elements have IDs like [42].
-- Browser actions (put inside <tool_call>):
-    click [42]              — click element 42
-    type [42] [text]        — type in an input field
-    goto [http://url/path]  — navigate to a URL (use this instead of clicking nav links)
-    scroll [42] [down]      — scroll
-    stop [your answer]      — end task, optionally with an answer string
-
-- For questions asking "what is X", navigate to the relevant page, find the answer
-  in the accessibility tree, then: <tool_call>stop [the answer you found]</tool_call>
-- Never use stop [] without an answer for questions that ask you to report information.
-- For Magento Admin best-sellers: goto [http://localhost:7780/admin/reports/bestsellers/]
-  then set date filters and refresh the report.
-- If goto does not change the page, click a visible link instead.
+INSTRUCTIONS:
+- The observation shows tool outputs from previous calls.
+- In <tool_call>, write the exact function call to execute.
+- Process items in order (1, 2, 3...). Do not skip items.
+- Keep track of how many items you have processed using <goal_update>.
+- When all items are done, call finish() or submit_answer(id) as appropriate.
+- Example valid tool calls:
+    get_product(5)
+    record_price(5, 12.99)
+    get_record(10)
+    label(10, HIGH)
+    check_item(3)
+    submit_answer(3)
+    finish()
+- After calling finish() or submit_answer(), use <final_answer>done</final_answer>.
 """
 SYSTEM_MARKER = "<<<DUAL_STREAM_SYSTEM>>>"
 USER_MARKER = "<<<DUAL_STREAM_USER>>>"

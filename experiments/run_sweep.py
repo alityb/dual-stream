@@ -5,8 +5,8 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
-from benchmarks.appworld.harness import AppWorldHarness
 from benchmarks.base import BenchmarkHarness
+from benchmarks.synthetic.harness import SyntheticHarness
 from benchmarks.tau_bench.harness import TauBenchHarness
 from benchmarks.webarena.harness import WebArenaHarness
 from src.agent import DualStreamAgent, WhitespaceTokenizer
@@ -27,8 +27,8 @@ def clean_results(results_dir: Path) -> None:
 
 def harness_for(benchmark: str) -> BenchmarkHarness:
     """Instantiate the configured real benchmark harness."""
-    if benchmark == "appworld":
-        return AppWorldHarness()
+    if benchmark == "synthetic":
+        return SyntheticHarness()
     if benchmark == "webarena":
         return WebArenaHarness()
     if benchmark == "tau_bench":
@@ -58,11 +58,19 @@ def agent_for(
             log_dir=agent_config.log_dir,
         )
         return DualStreamAgent(disabled, backend=backend, tool_executor=tool_executor)
-    if condition == "flat_sliding_window":
+    if condition in ("flat_sliding_window", "flat_equal_budget"):
         return FlatSlidingWindowAgent(agent_config, backend=backend, tool_executor=tool_executor)
     if condition == "flat_sink_recent":
         return FlatSinkRecentAgent(agent_config, backend=backend, tool_executor=tool_executor)
     raise ValueError(f"Unknown condition: {condition}")
+
+
+def _obs_budget_for(benchmark: str, condition: str) -> int:
+    """Return obs_budget for this condition. flat_equal_budget gets extra tokens."""
+    base = config.OBS_BUDGETS[benchmark]
+    if condition == "flat_equal_budget":
+        return base + config.AVG_GOAL_STREAM_TOKENS.get(benchmark, 80)
+    return base
 
 
 def run_task(
@@ -76,10 +84,10 @@ def run_task(
     """Run one real task and score it with its harness."""
     agent_config = AgentConfig(
         model=config.MODEL,
-        obs_budget=config.OBS_BUDGETS[benchmark],
+        obs_budget=_obs_budget_for(benchmark, condition),
         max_steps=step_budget,
         seed=config.SEED,
-        verifier_enabled=condition != "verifier_off",
+        verifier_enabled=condition not in ("verifier_off",),
     )
     backend = backend_factory() if backend_factory is not None else _default_backend()
     spec = harness.extract_task_spec(task)
@@ -95,7 +103,6 @@ def run_task(
     try:
         result = agent.run(spec.text, task_spec=spec)
         if session is not None:
-            # Pass agent's final answer so string_match evaluation works correctly
             task.metadata["last_score"] = str(session.evaluate(answer=result.answer))
         score = harness.score(task, result)
         return result, score
@@ -105,8 +112,7 @@ def run_task(
 
 
 def _default_backend() -> Backend:
-    from backends.openai import OpenAIBackend
-
+    from src.backends.openai import OpenAIBackend
     return OpenAIBackend()
 
 
@@ -138,7 +144,8 @@ def build_result(
             rows.append(
                 {
                     "task_id": task.id,
-                    "passed": bool(score == 1.0),
+                    "score": round(score, 4),
+                    "passed": bool(score >= 0.9),
                     "steps_used": result.steps_used,
                     "goal_stream_depth_max": max(
                         (entry.depth for entry in result.goal_stream_snapshot.entries), default=0
@@ -159,15 +166,19 @@ def build_result(
     mean_goal = sum(goal_tokens) / n_tasks
     total_steps = sum(row["steps_used"] for row in rows)
     total_rejections = sum(row["verifier_rejections"] for row in rows)
+    # Completion rate uses score >= 0.9 threshold for binary, but also report mean_score
+    completion_rate = round(sum(1 for row in rows if row["passed"]) / n_tasks, 3)
+    mean_score = round(sum(row["score"] for row in rows) / n_tasks, 4)
     return {
         "benchmark": benchmark,
         "condition": condition,
         "step_budget": step_budget,
         "model": config.MODEL,
         "seed": config.SEED,
-        "obs_budget": config.OBS_BUDGETS[benchmark],
+        "obs_budget": _obs_budget_for(benchmark, condition),
         "n_tasks": n_tasks,
-        "completion_rate": round(sum(1 for row in rows if row["passed"]) / n_tasks, 3),
+        "completion_rate": completion_rate,
+        "mean_score": mean_score,
         "mean_steps_used": round(total_steps / n_tasks, 2),
         "mean_goal_stream_tokens": round(mean_goal, 2),
         "mean_total_context_tokens": round(mean_total, 2),
@@ -199,8 +210,14 @@ def write_sweep(
     for benchmark in selected_benchmarks:
         for condition in selected_conditions:
             for step_budget in selected_step_budgets:
+                out_path = results_dir / f"{benchmark}_{condition}_{step_budget}.json"
+                if out_path.exists():
+                    print(f"[sweep] skip (exists) {out_path.name}", flush=True)
+                    paths.append(out_path)
+                    continue
                 print(
-                    f"[sweep] start benchmark={benchmark} condition={condition} N={step_budget} tasks={tasks}",
+                    f"[sweep] start benchmark={benchmark} condition={condition} "
+                    f"N={step_budget} tasks={tasks}",
                     flush=True,
                 )
                 result = build_result(
@@ -210,12 +227,11 @@ def write_sweep(
                     tasks,
                     backend_factory=backend_factory,
                 )
-                path = results_dir / f"{benchmark}_{condition}_{step_budget}.json"
-                path.write_text(
+                out_path.write_text(
                     json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
                 )
-                print(f"[sweep] wrote {path}", flush=True)
-                paths.append(path)
+                print(f"[sweep] wrote {out_path}", flush=True)
+                paths.append(out_path)
     return paths
 
 

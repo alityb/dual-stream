@@ -11,5 +11,11 @@ def test_bootstrap_ci_returns_min_max() -> None:
 
 def test_load_results_reads_json(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("experiments.run_sweep.harness_for", lambda benchmark: FakeHarness())
-    write_sweep(10, tmp_path, backend_factory=lambda: FakeBackend())
-    assert len(load_results(tmp_path)) == 32
+    paths = write_sweep(
+        3, tmp_path,
+        backend_factory=lambda: FakeBackend(),
+        benchmarks=["synthetic"],
+        conditions=["dual_stream", "verifier_off"],
+        step_budgets=[20, 50],
+    )
+    assert len(load_results(tmp_path)) == 4

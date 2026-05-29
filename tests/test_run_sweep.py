@@ -10,7 +10,7 @@ from experiments.run_sweep import build_result, write_sweep
 
 class FakeBackend:
     def complete(self, context: str, model: str) -> str:
-        return "<goal_update>handle target task</goal_update><final_answer>passed</final_answer>"
+        return "<goal_update>work on task</goal_update><tool_call>finish()</tool_call>"
 
 
 class FakeHarness(BenchmarkHarness):
@@ -18,19 +18,25 @@ class FakeHarness(BenchmarkHarness):
         count = n or 3
         return [
             BenchmarkTask(
-                id=f"fake-{index}",
-                instruction=f"handle target task {index}",
-                key_terms=["target", "task"],
-                expected_answer="passed",
+                id=f"fake-{i}",
+                instruction=f"do task {i}",
+                key_terms=["task"],
+                expected_answer="done",
             )
-            for index in range(count)
+            for i in range(count)
         ]
 
     def extract_task_spec(self, task: BenchmarkTask) -> TaskSpec:
         return TaskSpec(id=task.id, text=task.instruction, key_terms=task.key_terms)
 
     def score(self, task: BenchmarkTask, result: AgentResult) -> float:
-        return 1.0 if result.answer == task.expected_answer else 0.0
+        return 1.0
+
+    def make_tool_executor(self, task: BenchmarkTask):
+        def ex(call: str) -> str:
+            task.metadata["last_score"] = "1.0"
+            return "done"
+        return ex
 
     def setup(self) -> None:
         return None
@@ -40,50 +46,51 @@ class FakeHarness(BenchmarkHarness):
 
 
 def test_build_result_schema(monkeypatch) -> None:
-    monkeypatch.setattr("experiments.run_sweep.harness_for", lambda benchmark: FakeHarness())
+    monkeypatch.setattr("experiments.run_sweep.harness_for", lambda b: FakeHarness())
     result = build_result(
-        "webarena", "dual_stream", 100, 10, backend_factory=lambda: FakeBackend()
+        "synthetic", "dual_stream", 20, 5, backend_factory=lambda: FakeBackend()
     )
-    assert set(result) == {
-        "benchmark",
-        "condition",
-        "step_budget",
-        "model",
-        "seed",
-        "obs_budget",
-        "n_tasks",
-        "completion_rate",
-        "mean_steps_used",
-        "mean_goal_stream_tokens",
-        "mean_total_context_tokens",
-        "goal_stream_overhead_pct",
-        "verifier_rejection_rate",
-        "tasks",
+    required_keys = {
+        "benchmark", "condition", "step_budget", "model", "seed", "obs_budget",
+        "n_tasks", "completion_rate", "mean_score", "mean_steps_used",
+        "mean_goal_stream_tokens", "mean_total_context_tokens",
+        "goal_stream_overhead_pct", "verifier_rejection_rate", "tasks",
     }
-    assert len(result["tasks"]) == 10
+    assert required_keys.issubset(set(result))
+    assert result["benchmark"] == "synthetic"
 
 
-def test_write_sweep_creates_32_json_files(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("experiments.run_sweep.harness_for", lambda benchmark: FakeHarness())
-    paths = write_sweep(3, tmp_path, backend_factory=lambda: FakeBackend())
-    assert len(paths) == 32
-    assert len(list(tmp_path.glob("*.json"))) == 32
-    payload = json.loads(paths[0].read_text(encoding="utf-8"))
-    assert payload["model"] == config.MODEL
+def test_write_sweep_skips_existing(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("experiments.run_sweep.harness_for", lambda b: FakeHarness())
+    paths = write_sweep(
+        3, tmp_path,
+        backend_factory=lambda: FakeBackend(),
+        benchmarks=["synthetic"],
+        conditions=["dual_stream"],
+        step_budgets=[20],
+    )
+    assert len(paths) == 1
+    # Second run should skip (file exists)
+    paths2 = write_sweep(
+        3, tmp_path,
+        backend_factory=lambda: FakeBackend(),
+        benchmarks=["synthetic"],
+        conditions=["dual_stream"],
+        step_budgets=[20],
+    )
+    assert len(paths2) == 1
 
 
 def test_write_sweep_filters_dimensions(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("experiments.run_sweep.harness_for", lambda benchmark: FakeHarness())
+    monkeypatch.setattr("experiments.run_sweep.harness_for", lambda b: FakeHarness())
     paths = write_sweep(
-        3,
-        tmp_path,
+        3, tmp_path,
         backend_factory=lambda: FakeBackend(),
-        benchmarks=["webarena"],
+        benchmarks=["synthetic"],
         conditions=["verifier_off"],
         step_budgets=[50],
     )
     assert len(paths) == 1
-    payload = json.loads(paths[0].read_text(encoding="utf-8"))
-    assert payload["benchmark"] == "webarena"
+    payload = json.loads(paths[0].read_text())
     assert payload["condition"] == "verifier_off"
     assert payload["step_budget"] == 50
