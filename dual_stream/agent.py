@@ -8,12 +8,12 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.backends.openai import OpenAIBackend
-from src.compressor.sliding_window import trim
-from src.context.assembler import build_context
-from src.context.goal_stream import mark_complete
-from src.context.obs_stream import append_observation
-from src.core import (
+from dual_stream.backends.openai import OpenAIBackend
+from dual_stream.compressor.sliding_window import trim
+from dual_stream.context.assembler import build_context
+from dual_stream.context.goal_stream import mark_complete
+from dual_stream.context.obs_stream import append_observation
+from dual_stream.types import (
     AgentConfig,
     AgentResult,
     Backend,
@@ -26,37 +26,78 @@ from src.core import (
     ToolExecutor,
     VerifierResult,
 )
-from src.verifier.verifier import validate
+from dual_stream.verifier.verifier import validate
 
 LOGGER = logging.getLogger("dual_stream")
 logging.basicConfig(level=os.getenv("DS_LOG_LEVEL", "WARNING"))
 
 AGENT_PROTOCOL = """You are controlling an interactive agent loop.
-Respond using ONLY these XML tags. Do not include any prose outside the tags.
-
-<goal_update>one narrow subgoal</goal_update>
-<tool_call>browser action here</tool_call>
+You MUST respond using only these XML tags, with no markdown and no prose outside tags:
+<goal_update>one narrow next subgoal</goal_update>
+<tool_call>Python code to execute in the environment</tool_call>
 <mark_complete>goal_id</mark_complete>
-<final_answer>answer text</final_answer>
+<final_answer>final answer after the task is complete</final_answer>
 
-Every opening tag MUST have a matching closing tag.
-Use at least one tag per turn. Only emit <goal_update> when starting a new subtask.
+APPWORLD INSTRUCTIONS — follow exactly on every task:
 
-WEBARENA BROWSER AGENT:
-- Your observations are accessibility trees of web pages. Elements have IDs like [42].
-- Browser actions (put inside <tool_call>):
-    click [42]              — click element 42
-    type [42] [text]        — type in an input field
-    goto [http://url/path]  — navigate to a URL (use this instead of clicking nav links)
-    scroll [42] [down]      — scroll
-    stop [your answer]      — end task, optionally with an answer string
+1. Get supervisor credentials first — always do this before anything else:
+     profile = apis.supervisor.show_profile()
+     passwords = apis.supervisor.show_account_passwords()
 
-- For questions asking "what is X", navigate to the relevant page, find the answer
-  in the accessibility tree, then: <tool_call>stop [the answer you found]</tool_call>
-- Never use stop [] without an answer for questions that ask you to report information.
-- For Magento Admin best-sellers: goto [http://localhost:7780/admin/reports/bestsellers/]
-  then set date filters and refresh the report.
-- If goto does not change the page, click a visible link instead.
+2. Login to get an access_token for each app you need:
+     token = apis.amazon.login(
+         email=profile["email"],
+         password=passwords["amazon"]
+     )["access_token"]
+
+3. Use access_token in every subsequent API call to that app:
+     result = apis.amazon.show_cart(access_token=token)
+
+4. When the task is fully complete, call this — do not skip it:
+     apis.supervisor.complete_task()
+
+RULES:
+- Never pass a password directly as an access_token.
+- Always login before calling any app API that requires authentication.
+- Store access_token in a variable and reuse it. Do not login repeatedly.
+- If an API call fails, read the error message and adapt. Do not retry
+  the same call unchanged.
+- Emit <tool_call> with executable Python code. Do not emit <goal_update>
+  unless you are genuinely decomposing into a new subtask.
+
+Compatibility note: if show_account_passwords() returns a list, convert it first:
+passwords = {item["account_name"]: item["password"] for item in passwords}
+
+Rules:
+- Use at least one tag every turn.
+- Every opening tag MUST have its matching closing tag.
+- Invalid: <tool_call>print("x")
+- Valid: <tool_call>print("x")</tool_call>
+- For AppWorld tasks, <tool_call> contains Python code executed in a persistent shell.
+- In AppWorld code, call APIs as apis.{app_name}.{api_name}(...).
+- First inspect needed credentials/data with supervisor, api_docs, and app APIs.
+- Useful AppWorld discovery calls:
+  passwords = apis.supervisor.show_account_passwords(); print(passwords)
+  profile = apis.supervisor.show_profile(); print(profile)
+  docs = apis.api_docs.search_api_docs(query="what you need", page_limit=5); print(docs)
+  doc = apis.api_docs.show_api_doc(app_name="amazon", api_name="show_cart"); print(doc)
+- Prefer combining one narrow <goal_update> with one immediately useful <tool_call>.
+- Do not emit <goal_update> every turn. If the active subgoal is still correct,
+  emit only <tool_call>.
+- Keep <goal_update> under 5 words.
+- After the first tool call, prefer <tool_call> only. Add a new <goal_update>
+  only when switching to a different app or major subtask.
+- Print useful outputs so they appear in observations.
+- Call apis.supervisor.complete_task() when the task is finished.
+- NEVER emit <final_answer> for AppWorld until after a <tool_call> has called
+  apis.supervisor.complete_task() and you have observed the result.
+- If no tool has been used yet, your response MUST include a <tool_call>.
+- A good first AppWorld response is:
+  <goal_update>inspect needed account credentials and task state</goal_update>
+  <tool_call>passwords = apis.supervisor.show_account_passwords(); print(passwords)\nprint(apis.supervisor.show_active_task())</tool_call>
+- Make <goal_update> narrower than the root task; do not repeat the full task.
+- Do not wrap tool code in Markdown fences.
+- Keep each response concise.
 """
 SYSTEM_MARKER = "<<<DUAL_STREAM_SYSTEM>>>"
 USER_MARKER = "<<<DUAL_STREAM_USER>>>"
@@ -221,19 +262,6 @@ class DualStreamAgent:
             final_tool_call = None
             if parsed.tool_call is not None:
                 final_tool_call = parsed.tool_call
-                # Handle WebArena stop action: stop [answer] → final_answer
-                stop_match = re.match(r"^stop\s*\[?(.*?)\]?\s*$", parsed.tool_call.strip(), re.DOTALL)
-                if stop_match and parsed.final_answer is None:
-                    answer = stop_match.group(1).strip()
-                    return AgentResult(
-                        answer=answer,
-                        steps_used=step,
-                        goal_stream_snapshot=goal_stream,
-                        obs_stream_snapshot=obs_stream,
-                        timed_out=False,
-                        verifier_rejections=verifier_rejections,
-                        final_tool_call=final_tool_call,
-                    )
                 output = self.tool_executor(parsed.tool_call)
                 append_observation(
                     obs_stream,

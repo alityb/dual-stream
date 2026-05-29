@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="132">
+<rect width="100%" height="100%" fill="white"/>
+<text x="24" y="36" font-size="22" font-family="monospace">GoalStream Overhead</text>
+<text x="24" y="72" font-size="15" font-family="monospace">swe_bench: N=20: 3.78%, N=50: 3.78%, N=100: 3.78%, N=200: 3.78%</text>
+<text x="24" y="96" font-size="15" font-family="monospace">webarena: N=20: 7.28%, N=50: 7.28%, N=100: 7.28%, N=200: 7.28%</text>
+<text x="24" y="120" font-size="15" font-family="monospace">tau_bench: N=20: 7.28%, N=50: 7.28%, N=100: 7.28%, N=200: 7.28%</text>
+</svg>

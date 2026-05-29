@@ -12,22 +12,15 @@ def _env_value(name: str) -> str | None:
     value = os.getenv(name)
     if value:
         return value
-    # Search for .env in the module's own directory tree (survives chdir)
-    for candidate in [
-        Path(".env"),  # current dir
-        Path(__file__).parent.parent.parent / ".env",  # project root
-    ]:
-        try:
-            if not candidate.exists():
-                continue
-            for line in candidate.read_text(encoding="utf-8").splitlines():
-                if not line or line.strip().startswith("#") or "=" not in line:
-                    continue
-                key, raw_value = line.split("=", 1)
-                if key.strip() == name and raw_value.strip():
-                    return raw_value.strip().strip('"').strip("'")
-        except OSError:
+    env_path = Path(".env")
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        if not line or line.strip().startswith("#") or "=" not in line:
             continue
+        key, raw_value = line.split("=", 1)
+        if key.strip() == name and raw_value.strip():
+            return raw_value.strip().strip('"').strip("'")
     return None
 
 
@@ -60,7 +53,6 @@ class OpenAIBackend:
                     messages=messages,
                     temperature=0,
                     max_tokens=self.max_tokens,
-                    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
                 content = response.choices[0].message.content
                 return content or ""

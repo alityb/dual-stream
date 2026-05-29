@@ -95,7 +95,8 @@ def run_task(
     try:
         result = agent.run(spec.text, task_spec=spec)
         if session is not None:
-            task.metadata["last_score"] = str(session.evaluate())
+            # Pass agent's final answer so string_match evaluation works correctly
+            task.metadata["last_score"] = str(session.evaluate(answer=result.answer))
         score = harness.score(task, result)
         return result, score
     finally:

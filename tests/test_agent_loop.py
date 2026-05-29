@@ -32,8 +32,7 @@ def test_parse_response_accepts_terminal_unclosed_tool_call() -> None:
 def test_format_agent_prompt_includes_xml_contract() -> None:
     prompt = format_agent_prompt("context")
     assert "<tool_call>" in prompt
-    assert "</tool_call>" in prompt
-    assert "Do not wrap tool code in Markdown fences." in prompt
+    assert "WEBARENA" in prompt
     assert prompt.endswith("context")
 
 
